@@ -2,6 +2,18 @@
 
 A dynamic, zero-configuration streaming analytics dashboard with a PostgreSQL backend, generic CSV parsing, AWS IAM Role-Based Access Control (RBAC) via OIDC, and AI-powered insights via Claude.
 
+**Production URL:** [https://jhbstreampulse.opssightai.com](https://jhbstreampulse.opssightai.com)
+
+## Services Tracked
+
+| Service | Color | Years | Platforms |
+|---------|-------|-------|-----------|
+| Line Crossers | Purple (#A855F7) | 2023 | YouTube, Facebook, X (Twitter), Instagram |
+| Insights with Pastor T. | Amber (#F59E0B) | 2025–2026 | YouTube, Facebook, X (Twitter), Instagram, Telegram, TikTok |
+| JHB Services | Indigo (#6366F1) | 2023–2026 | YouTube, Facebook, X (Twitter), Instagram, Telegram, Emerge, Boxcast, TikTok |
+| JHB Charlotte | Pink (#EC4899) | 2023–2026 | YouTube, Facebook, X (Twitter), Instagram, Telegram, TikTok |
+| JHB Bible Study – Word Power | Green (#10B981) | 2025–2026 | YouTube, Facebook, X (Twitter), Instagram, Telegram, Zoom, Boxcast |
+
 ## Quick Start (Mac)
 
 ```bash
@@ -18,14 +30,17 @@ Opens at **http://localhost:8000**
 # 1. Install dependencies
 npm install
 
-# 2. Seed database (first run)
-node seed.js                          # Built-in 2026 data only
-node seed.js path/to/your-data.csv    # Import from CSV file
+# 2. Start PostgreSQL
+docker compose up -d postgres
 
-# 3. Build frontend
+# 3. Seed database (first run)
+PORT=8000 node seed.js                          # Built-in 2026 data only
+PORT=8000 node seed.js path/to/your-data.csv    # Import from CSV file
+
+# 4. Build frontend
 npx vite build
 
-# 4. Start server
+# 5. Start server
 node server.js
 ```
 
@@ -115,17 +130,69 @@ Click **Export CSV** to download all current data as a flat CSV file.
 
 ## AWS EKS Production Deployment
 
-StreamPulse Analytics is packaged as a multi-architecture Docker container (`linux/amd64`, `linux/arm64`) and can be seamlessly deployed to AWS Elastic Kubernetes Service (EKS).
+StreamPulse is deployed to **AWS EKS** (`jhb-streampulse-cluster`, `us-east-1`) and accessible at [https://jhbstreampulse.opssightai.com](https://jhbstreampulse.opssightai.com).
+
+### Infrastructure
+
+| Component | Detail |
+|-----------|--------|
+| **EKS Cluster** | `jhb-streampulse-cluster` (5 nodes, v1.31) |
+| **Namespace** | `jhb-streampulse` |
+| **ECR Repository** | `713220200108.dkr.ecr.us-east-1.amazonaws.com/jhb-streampulse` |
+| **ALB Ingress** | Internet-facing, `alb` IngressClass |
+| **Domain** | `jhbstreampulse.opssightai.com` (Route 53 CNAME → ALB) |
+| **TLS Certificate** | ACM cert for `jhbstreampulse.opssightai.com` (valid until 2027-03-16) |
+| **Cognito Auth** | Pool `jhb-streampulse-users` (`us-east-1_fZ6Vfj5k1`) |
+| **Secrets** | `streampulse-secrets` (DATABASE_URL, ANTHROPIC_API_KEY) |
+| **PostgreSQL** | In-cluster pod (`postgres:15`, user `streamuser`, db `streamdb`) |
+
+### Build & Deploy
 
 ```bash
-# Apply the Kubernetes manifests
+# 1. Login to ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 713220200108.dkr.ecr.us-east-1.amazonaws.com
+
+# 2. Build for amd64 (IMPORTANT: EKS nodes are x86_64, not arm64)
+docker build --platform linux/amd64 -t 713220200108.dkr.ecr.us-east-1.amazonaws.com/jhb-streampulse:latest .
+
+# 3. Push to ECR
+docker push 713220200108.dkr.ecr.us-east-1.amazonaws.com/jhb-streampulse:latest
+
+# 4. Apply manifests & restart
 kubectl apply -f k8s.yaml
+kubectl rollout restart deployment/jhb-streampulse -n jhb-streampulse
+
+# 5. Verify rollout
+kubectl rollout status deployment/jhb-streampulse -n jhb-streampulse --timeout=90s
 ```
 
-The production EKS deployment features:
-- **PostgreSQL Database:** Handled externally via AWS RDS to ensure scalable and durable analytics data storage.
-- **AWS Cognito Auth:** Fully integrated with AWS Application Load Balancer (ALB) Ingress to enforce AWS Cognito user authentication before allowing access to the dashboard.
-- **Secrets Management:** Secures the `ANTHROPIC_API_KEY` and `DATABASE_URL` via native Kubernetes Secrets.
+### ALB Ingress Configuration
+
+The ALB Ingress (`jhb-streampulse-alb`) provides:
+- **HTTPS** with ACM certificate and HTTP→HTTPS redirect (port 80 → 443)
+- **Cognito authentication** — unauthenticated requests redirect to Cognito hosted UI
+- **Health checks** on `/api/stats` (30s interval, 5s timeout)
+- **IP target type** — routes directly to pod IPs
+
+Key annotations in the Ingress resource:
+```yaml
+alb.ingress.kubernetes.io/scheme: internet-facing
+alb.ingress.kubernetes.io/target-type: ip
+alb.ingress.kubernetes.io/auth-type: cognito
+alb.ingress.kubernetes.io/ssl-redirect: "443"
+alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:713220200108:certificate/9ebb58d2-...
+alb.ingress.kubernetes.io/healthcheck-path: /api/stats
+```
+
+### Kubernetes Secrets
+
+```bash
+# Create or update secrets
+kubectl create secret generic streampulse-secrets -n jhb-streampulse \
+  --from-literal=DATABASE_URL=postgres://streamuser:streampass@postgres:5432/streamdb \
+  --from-literal=ANTHROPIC_API_KEY=sk-ant-api03-your-key-here \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
 
 ## Local Docker Deployment
 
@@ -137,6 +204,23 @@ docker compose up -d
 ANTHROPIC_API_KEY=sk-ant-api03-your-key docker compose up -d
 ```
 
+### Local Development (Vite + Express)
+
+```bash
+# Terminal 1: Start PostgreSQL
+docker compose up -d postgres
+
+# Terminal 2: Start Express API server
+PORT=8003 node server.js
+
+# Terminal 3: Start Vite dev server (proxies /api to Express)
+npx vite --port 5175
+
+# Open http://localhost:5175
+```
+
+The Vite dev server proxies `/api` requests to `http://localhost:8003` (configurable in `vite.config.js`).
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -146,38 +230,98 @@ ANTHROPIC_API_KEY=sk-ant-api03-your-key docker compose up -d
 | `DATABASE_URL` | *(none)* | PostgreSQL Connection String |
 | `ANTHROPIC_API_KEY` | *(none)* | Claude API key for AI Insights (optional) |
 
+## CSV Parser
+
+The CSV parser (`csv-parser.js`) uses a **3-phase service detection algorithm**:
+
+1. **Phase 1 — Header scan:** Scans the first few rows for service name patterns (e.g., "JHB January 2023", "Line Crossers February 2025")
+2. **Phase 2 — Column mapping:** Maps column positions to services based on header blocks separated by empty columns
+3. **Phase 3 — Data extraction:** Reads platform rows (YouTube, Facebook, X/Twitter, Instagram, Telegram, TikTok, etc.) and weekly totals
+
+Supported CSV formats:
+- Multi-service side-by-side layout (JHB, JHB Charlotte, Bible Study in parallel columns)
+- Monthly blocks with weekly dates as column headers
+- Special events section (14 Days of Glory, Peniel, GLC, Watch Night, etc.)
+- Branded platform colors are applied automatically per the `PLATFORM_STYLE` and `SERVICE_PALETTE` maps
+
 ## Project Structure
 
 ```
-├── server.js          # Express API server + AI insights engine
-├── db.js              # PostgreSQL database connection pool
-├── csv-parser.js      # JHB CSV format parser
-├── seed.js            # Database seeder
+├── server.js              # Express API server + AI insights engine
+├── db.js                  # PostgreSQL database layer (6 tables)
+├── csv-parser.js          # 3-phase CSV parser with branded colors
+├── seed.js                # Database seeder (built-in or CSV import)
+├── vite.config.js         # Vite config (proxy, build output)
 ├── src/
-│   ├── Dashboard.jsx  # React dashboard + AI insights panel
-│   └── main.jsx       # Entry point
-├── public/            # Built frontend
-├── start.command      # Mac launcher
-├── Dockerfile         # Container build
-└── docker-compose.yml # Docker deployment
+│   ├── Dashboard.jsx      # Main React dashboard component
+│   ├── main.jsx           # React entry point
+│   ├── components/
+│   │   ├── Modals/
+│   │   │   ├── AboutModal.jsx
+│   │   │   ├── EntryModal.jsx
+│   │   │   ├── InsightsPanel.jsx
+│   │   │   └── UploadModal.jsx
+│   │   └── UI/
+│   │       ├── NotifPanel.jsx
+│   │       └── StatCard.jsx
+│   └── utils/
+│       ├── config.js
+│       └── helpers.js
+├── scripts/
+│   └── migrate_sqlite_to_pg.js  # SQLite → PostgreSQL migration
+├── public/                # Built frontend (Vite output)
+├── k8s.yaml               # Kubernetes deployment + PostgreSQL
+├── k8s_svc.yaml           # NodePort service
+├── Dockerfile             # Multi-stage build (amd64 for EKS)
+├── docker-compose.yml     # Local Docker deployment
+└── start.command          # Mac launcher
 ```
 
 ## Database
 
-PostgreSQL relational tables map to your unique streaming environment.
+PostgreSQL 15 with 6 tables, auto-created on startup via `initDB()` in `db.js`.
 
-### Tables
+### Schema
 
-- **config** — Dynamic UI configuration, service definitions, colors, and parsed platform lists
-- **weekly_data** — Weekly viewer counts per service (stores platforms automatically as JSON)
-- **special_events** — Discovered event metadata
-- **special_event_data** — Daily viewer counts for events (stores platforms automatically as JSON)
-- **upload_history** — CSV upload audit log
-- **ai_insights** — AI-generated analysis history
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `config` | Dynamic UI configuration (services, colors, platforms) | `key` (PK), `value` (JSON text) |
+| `weekly_data` | Weekly viewer counts per service | `service`, `date` (UNIQUE), `month`, `platforms` (JSONB), `total` |
+| `special_events` | Event metadata | `name`, `dates_label` (UNIQUE together) |
+| `special_event_data` | Per-session event viewer counts | `event_id` (FK → special_events), `date`, `platforms` (JSONB), `total` |
+| `upload_history` | CSV upload audit log | `filename`, `uploaded_at`, `mode`, `rows_added/updated/total` |
+| `ai_insights` | AI-generated analysis history | `trigger_type`, `summary`, `highlights` (JSONB), `alerts` (JSONB), token counts |
+
+### Indexes
+
+- `idx_weekly_service` on `weekly_data(service)`
+- `idx_weekly_date` on `weekly_data(date)`
+- Cascade delete on `special_event_data` → `special_events`
+
+### Seeding Data via CSV
+
+```bash
+# Import a CSV file (upserts — merges new data, updates existing)
+PORT=8000 node seed.js /path/to/your-data.csv
+
+# NOTE: Each CSV seed overwrites the services config. After importing
+# multiple years, restore the full 5-service config via the dashboard
+# or direct SQL update.
+```
 
 ## Supported Platforms
 
 StreamPulse Analytics is completely dynamic. It will read whatever platform columns you put in your CSV (e.g., YouTube, Twitch, TikTok, Boxcast, PT Online Viewers) and automatically build the database schema and UI to track them.
+
+## Dashboard Tabs
+
+| Tab | Description |
+|-----|-------------|
+| **Overview** | Summary stats, weekly trend chart, AI insights banner |
+| **Trends** | Multi-service line charts with date range filtering |
+| **Weekly Comparison** | Side-by-side week-over-week comparison |
+| **All Services** | Service summary cards with weekly data counts |
+| **Data Table** | Raw data table with search and filtering |
 
 ## Compliance
 

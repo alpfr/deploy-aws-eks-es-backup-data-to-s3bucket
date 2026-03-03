@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"jhb-streampulse"},"name":"jhb-streampulse-nodeport","namespace":"jhb-streampulse"},"spec":{"ports":[{"name":"http","port":80,"protocol":"TCP","targetPort":8000}],"selector":{"app":"jhb-streampulse"},"type":"NodePort"}}
+  creationTimestamp: "2026-02-15T13:16:30Z"
+  labels:
+    app: jhb-streampulse
+  name: jhb-streampulse-nodeport
+  namespace: jhb-streampulse
+  resourceVersion: "163019"
+  uid: e9ef1763-3ac3-41d2-b5ab-ddd709b8ffe4
+spec:
+  clusterIP: 10.100.135.147
+  clusterIPs:
+  - 10.100.135.147
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30631
+    port: 80
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: jhb-streampulse
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}

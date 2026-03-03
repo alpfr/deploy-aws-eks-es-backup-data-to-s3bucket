@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jhb-streampulse
+  namespace: jhb-streampulse
+  labels:
+    app: jhb-streampulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jhb-streampulse
+  template:
+    metadata:
+      labels:
+        app: jhb-streampulse
+    spec:
+      containers:
+      - name: streampulse
+        image: 713220200108.dkr.ecr.us-east-1.amazonaws.com/jhb-streampulse:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: PORT
+          value: "8000"
+        - name: NODE_ENV
+          value: "production"
+        - name: MOCK_AUTH_ROLE
+          value: "admin"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: streampulse-secrets
+              key: DATABASE_URL
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: streampulse-secrets
+              key: ANTHROPIC_API_KEY
+              optional: true
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: jhb-streampulse
+spec:
+  ports:
+  - port: 5432
+  selector:
+    app: postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: jhb-streampulse
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: streamuser
+        - name: POSTGRES_PASSWORD
+          value: streampass
+        - name: POSTGRES_DB
+          value: streamdb

@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: ai-compliance
+data:
+  DATABASE_URL: "postgresql://postgres:ai-compliance-secure-db-pass@postgres-svc:5432/ai_compliance"
+  SECRET_KEY: "replace-this-secure-secret-key-in-prod"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ai-compliance
+  labels:
+    app: ai-compliance
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-compliance
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: ai-compliance
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          # In a real environment, replace 'local' with your Artifact Registry (e.g., us-central1-docker.pkg.dev/project_id/repo/backend:latest)
+          image: backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+  namespace: ai-compliance
+spec:
+  selector:
+    app: ai-compliance
+    component: backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000

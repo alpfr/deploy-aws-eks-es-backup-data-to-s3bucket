@@ -1,4 +1,4 @@
-# AI Compliance Platform Backend Dockerfile
+# AI Compliance Platform Backend Dockerfile (Optimized)
 
 FROM python:3.11-slim
 
@@ -22,5 +22,5 @@ RUN mkdir -p /app/data
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application using Gunicorn with Uvicorn workers
+CMD ["gunicorn", "main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]

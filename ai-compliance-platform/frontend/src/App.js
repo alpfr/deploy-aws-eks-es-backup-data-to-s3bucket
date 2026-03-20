@@ -19,25 +19,50 @@ import Organizations from './components/Organizations';
 import AuditTrail from './components/AuditTrail';
 import Navigation from './components/Navigation';
 
-// Theme configuration
+// Premium Dark Theme configuration
 const theme = createTheme({
   palette: {
+    mode: 'dark',
     primary: {
-      main: '#1976d2',
+      main: '#90caf9',
     },
     secondary: {
-      main: '#dc004e',
+      main: '#f48fb1',
     },
     background: {
-      default: '#f5f5f5',
+      default: '#0a1929',
+      paper: '#001e3c',
     },
   },
   typography: {
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
     h4: {
-      fontWeight: 600,
+      fontWeight: 700,
+      letterSpacing: '-0.02em',
     },
     h6: {
-      fontWeight: 500,
+      fontWeight: 600,
+      letterSpacing: '-0.01em',
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: 'none',
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+        },
+      },
     },
   },
 });

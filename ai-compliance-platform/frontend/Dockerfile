@@ -1,6 +1,7 @@
-# AI Compliance Platform Frontend Dockerfile
+# AI Compliance Platform Frontend Dockerfile (Optimized Multi-Stage)
 
-FROM node:18-alpine
+# Build stage
+FROM node:18-alpine as build
 
 WORKDIR /app
 
@@ -10,11 +11,20 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy application code
+# Copy application code and build
 COPY . .
+RUN npm run build
 
-# Expose port
+# Production stage
+FROM nginx:alpine
+
+# Copy built assets from builder phase
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Update Nginx to listen on port 3000 instead of 80 to match docker-compose.yml
+RUN sed -i 's/listen  *80;/listen 3000;/g' /etc/nginx/conf.d/default.conf
+
+# Expose port 3000
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"]
+CMD ["nginx", "-g", "daemon off;"]

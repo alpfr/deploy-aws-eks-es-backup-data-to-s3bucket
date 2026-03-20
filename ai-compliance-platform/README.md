@@ -26,10 +26,10 @@ A comprehensive system for operationalizing AI compliance frameworks, serving du
 ## 🏗️ Architecture
 
 The platform follows a microservices architecture with:
-- **FastAPI Backend**: RESTful API with JWT authentication
-- **React Frontend**: Modern web interface with Material-UI
-- **SQLite Database**: Lightweight database for MVP (PostgreSQL for production)
-- **Docker Deployment**: Containerized services with Docker Compose
+- **FastAPI Backend**: RESTful API orchestrated with Gunicorn/Uvicorn workers
+- **React Frontend**: Blazing-fast frontend built with Vite and Recharts, served via slim NGINX via multi-stage builds
+- **PostgreSQL Database**: Production-ready robust data storage powered natively by psycopg2
+- **Deployment**: Local testing via Docker Compose & production-grade manifests via Kubernetes/GKE
 
 ## 🚀 Quick Start
 
@@ -140,7 +140,7 @@ Create your own regex patterns for industry-specific compliance requirements.
    ```bash
    cd frontend
    npm install
-   npm start
+   npm run dev  # Powered by Vite
    ```
 
 ### API Endpoints
@@ -209,25 +209,24 @@ Expected Output: "Contact John Doe at [REDACTED] for [FLAGGED: guaranteed return
 
 ## 🚢 Deployment
 
-### Production Deployment
+### Production Deployment (GKE / Kubernetes)
 
-1. **Environment Variables**
+This platform includes a complete suite of standard Kubernetes configuration manifests found in the `k8s/` directory.
+
+1. **Environment Variables ConfigMap**
+   - The environment properties for the Backend are cleanly specified natively via `k8s/02-backend.yaml` connecting to PostgreSQL out of the box securely.
+
+2. **Kubernetes Configuration Deployment**
    ```bash
-   export SECRET_KEY="your-production-secret-key"
-   export DATABASE_URL="postgresql://user:pass@localhost/ai_compliance"
+   # Make sure your context is pointed at your GKE cluster, then:
+   kubectl apply -f k8s/00-namespace.yaml
+   kubectl apply -f k8s/01-postgres.yaml
+   kubectl apply -f k8s/
    ```
 
-2. **Database Migration**
-   ```bash
-   # For PostgreSQL production deployment
-   pip install psycopg2-binary
-   # Update DATABASE_URL in main.py
-   ```
-
-3. **Docker Production**
-   ```bash
-   docker-compose -f docker-compose.prod.yml up -d
-   ```
+3. **CI/CD Integration**
+   - We utilize a native `cloudbuild.yaml` in the root repository seamlessly configured for **Google Cloud Build** connecting directly to your internal **Artifact Registry**. 
+   - Additionally, native **GitHub Actions** workflows are templated inside `.github/workflows/deploy-gke.yml`.
 
 ## 📈 Roadmap
 

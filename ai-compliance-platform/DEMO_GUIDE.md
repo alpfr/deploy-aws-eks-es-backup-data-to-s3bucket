@@ -29,7 +29,8 @@ This guide will walk you through demonstrating the key features of the AI Compli
 **Login as Organization Admin (`admin` / `admin123`)**
 
 1. **Dashboard Overview**
-   - View compliance metrics
+   - View dual-axis visual Compliance Trends powered by Recharts
+   - Check compliance metrics and averages
    - Check recent violations
    - Review assessment status
 

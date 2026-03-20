@@ -25,6 +25,19 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useApi } from '../contexts/ApiContext';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
+
+const mockTrendsData = [
+  { name: 'Mon', score: 85, violations: 4 },
+  { name: 'Tue', score: 88, violations: 3 },
+  { name: 'Wed', score: 86, violations: 5 },
+  { name: 'Thu', score: 92, violations: 1 },
+  { name: 'Fri', score: 95, violations: 0 },
+  { name: 'Sat', score: 94, violations: 2 },
+  { name: 'Sun', score: 96, violations: 1 },
+];
 
 function StatCard({ title, value, icon, color = 'primary', subtitle }) {
   return (
@@ -107,22 +120,22 @@ export default function Dashboard() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    const loadDashboardData = async () => {
+      setLoading(true);
+      const result = await getDashboardData();
+      
+      if (result.success) {
+        setDashboardData(result.data);
+        setError('');
+      } else {
+        setError(result.error);
+      }
+      
+      setLoading(false);
+    };
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    const result = await getDashboardData();
-    
-    if (result.success) {
-      setDashboardData(result.data);
-      setError('');
-    } else {
-      setError(result.error);
-    }
-    
-    setLoading(false);
-  };
+    loadDashboardData();
+  }, [getDashboardData]);
 
   if (loading) {
     return (
@@ -220,6 +233,30 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </Grid>
+            
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Compliance Trends (Platform-Wide)
+                  </Typography>
+                  <Box sx={{ width: '100%', height: 300, mt: 3 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={mockTrendsData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis yAxisId="left" orientation="left" stroke="#1976d2" />
+                        <YAxis yAxisId="right" orientation="right" stroke="#dc004e" />
+                        <Tooltip />
+                        <Legend />
+                        <Bar yAxisId="left" dataKey="score" name="Avg Score" fill="#1976d2" radius={[4, 4, 0, 0]} />
+                        <Bar yAxisId="right" dataKey="violations" name="Violations" fill="#dc004e" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
           </>
         ) : (
           // Organization Admin Dashboard
@@ -302,6 +339,30 @@ export default function Dashboard() {
                     <Typography variant="body2" color="text.secondary">
                       Keep monitoring your compliance metrics regularly.
                     </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Weekly Compliance Trends
+                  </Typography>
+                  <Box sx={{ width: '100%', height: 300, mt: 3 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={mockTrendsData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis yAxisId="left" orientation="left" stroke="#1976d2" />
+                        <YAxis yAxisId="right" orientation="right" stroke="#dc004e" />
+                        <Tooltip />
+                        <Legend />
+                        <Bar yAxisId="left" dataKey="score" name="Compliance Score" fill="#1976d2" radius={[4, 4, 0, 0]} />
+                        <Bar yAxisId="right" dataKey="violations" name="Violations" fill="#dc004e" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </Box>
                 </CardContent>
               </Card>

@@ -1,19 +1,19 @@
 steps:
   # Step 1: Build the optimized Gunicorn Backend container
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/backend:$COMMIT_SHA', './backend']
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/backend:$BUILD_ID', './backend']
   
   # Step 2: Build the optimized Vite/NGINX Frontend container
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/frontend:$COMMIT_SHA', './frontend']
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/frontend:$BUILD_ID', './frontend']
 
   # Step 3: Push Backend container to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/backend:$COMMIT_SHA']
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/backend:$BUILD_ID']
 
   # Step 4: Push Frontend container to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/frontend:$COMMIT_SHA']
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/frontend:$BUILD_ID']
 
   # Step 5: Dynamically substitute the latest Git SHA images into the k8s descriptors
   - name: 'ubuntu'
@@ -21,8 +21,8 @@ steps:
     args:
       - '-c'
       - |
-        sed -i "s|image: backend:latest|image: us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/backend:$COMMIT_SHA|g" k8s/02-backend.yaml
-        sed -i "s|image: frontend:latest|image: us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/frontend:$COMMIT_SHA|g" k8s/03-frontend.yaml
+        sed -i "s|image: backend:latest|image: us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/backend:$BUILD_ID|g" k8s/02-backend.yaml
+        sed -i "s|image: frontend:latest|image: us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/frontend:$BUILD_ID|g" k8s/03-frontend.yaml
 
   # Step 6: Create the core Kubernetes Namespace if it does not exist
   - name: 'gcr.io/cloud-builders/kubectl'

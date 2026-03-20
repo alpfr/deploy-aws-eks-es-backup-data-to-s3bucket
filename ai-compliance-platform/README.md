@@ -209,24 +209,21 @@ Expected Output: "Contact John Doe at [REDACTED] for [FLAGGED: guaranteed return
 
 ## 🚢 Deployment
 
-### Production Deployment (GKE / Kubernetes)
+### Production Deployment (GKE & Cloud Run)
 
-This platform includes a complete suite of standard Kubernetes configuration manifests found in the `k8s/` directory.
+This platform includes a complete suite of standard Kubernetes configuration manifests found in the `k8s/` directory alongside 100% serverless configurations.
 
-1. **Environment Variables ConfigMap**
-   - The environment properties for the Backend are cleanly specified natively via `k8s/02-backend.yaml` connecting to PostgreSQL out of the box securely.
+1. **Option A: Kubernetes Deployment (GKE)**
+   - See `k8s/` directory for manifests.
+   - Run `kubectl apply -f k8s/` natively against your target cluster.
 
-2. **Kubernetes Configuration Deployment**
-   ```bash
-   # Make sure your context is pointed at your GKE cluster, then:
-   kubectl apply -f k8s/00-namespace.yaml
-   kubectl apply -f k8s/01-postgres.yaml
-   kubectl apply -f k8s/
-   ```
+2. **Option B: Serverless Deployment (Google Cloud Run)**
+   - Provides an auto-scaling, scale-to-zero serverless environment securely linked to a managed PostgreSQL cluster.
+   - Read the explicit step-by-step setup in `CLOUD_RUN_DEPLOYMENT.md` detailing the automated integration loop.
 
 3. **CI/CD Integration**
    - We utilize a native `cloudbuild.yaml` in the root repository seamlessly configured for **Google Cloud Build** connecting directly to your internal **Artifact Registry**. 
-   - Additionally, native **GitHub Actions** workflows are templated inside `.github/workflows/deploy-gke.yml`.
+   - Additionally, native **GitHub Actions** workflows are templated targeting both GKE and Cloud Run structurally inside `.github/workflows/`.
 
 ## 📈 Roadmap
 

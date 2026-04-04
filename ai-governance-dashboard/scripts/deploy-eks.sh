@@ -213,6 +213,39 @@ autoscaling:
   enabled: true
   minReplicas: $([ "$ENVIRONMENT" = "production" ] && echo "3" || echo "2")
   maxReplicas: $([ "$ENVIRONMENT" = "production" ] && echo "10" || echo "5")
+
+# Spot instance scheduling for cost optimization
+spotInstances:
+  enabled: true
+  taintEffect: PreferNoSchedule
+
+tolerations:
+  - key: "spot-instance"
+    operator: "Equal"
+    value: "true"
+    effect: "PreferNoSchedule"
+
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 90
+      preference:
+        matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - spot
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - ai-governance-dashboard
+        topologyKey: kubernetes.io/hostname
 EOF
 
     # Deploy or upgrade

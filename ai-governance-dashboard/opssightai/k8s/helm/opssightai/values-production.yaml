@@ -1,0 +1,113 @@
+# OpsSightAI Production Values
+# Override default values for production deployment
+
+# Frontend configuration
+frontend:
+  replicaCount: 3
+  
+  image:
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Backend configuration
+backend:
+  replicaCount: 5
+  
+  image:
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Database configuration
+database:
+  persistence:
+    enabled: true
+    size: 50Gi
+  
+  resources:
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+
+# Ingress configuration
+ingress:
+  enabled: true
+  annotations:
+    # Add SSL/TLS certificate ARN for production
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/cert-id
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+  
+  hosts:
+    - host: opssightai.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: opssightai-frontend
+              port: 80
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: opssightai-backend
+              port: 4000
+  
+  tls:
+    - secretName: opssightai-tls
+      hosts:
+        - opssightai.yourdomain.com
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Network Policy
+networkPolicy:
+  enabled: true
+
+# Service Monitor for Prometheus
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+
+# Spot instance configuration for production
+spotInstances:
+  enabled: true
+  taintEffect: PreferNoSchedule
+
+# Database must run on on-demand nodes
+databaseNodeSelector:
+  node-type: on-demand

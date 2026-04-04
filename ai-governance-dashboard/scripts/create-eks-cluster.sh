@@ -137,11 +137,12 @@ iam:
 
 # Managed Node Groups
 managedNodeGroups:
-- name: $NODE_GROUP_NAME
+# On-demand node group for stateful workloads (databases, Redis, etc.)
+- name: ${NODE_GROUP_NAME}-ondemand
   instanceType: $NODE_TYPE
-  minSize: $MIN_NODES
-  maxSize: $MAX_NODES
-  desiredCapacity: $DESIRED_NODES
+  minSize: 2
+  maxSize: 5
+  desiredCapacity: 2
   volumeSize: 50
   volumeType: gp3
   amiFamily: AmazonLinux2
@@ -150,6 +151,8 @@ managedNodeGroups:
   labels:
     role: worker
     environment: production
+    node-type: on-demand
+    workload-type: stateful
   tags:
     k8s.io/cluster-autoscaler/enabled: "true"
     k8s.io/cluster-autoscaler/$CLUSTER_NAME: "owned"
@@ -166,6 +169,40 @@ managedNodeGroups:
       efs: true
       awsLoadBalancerController: true
       xRay: true
+      cloudWatch: true
+
+# Spot node group for stateless workloads (frontends, backends, APIs)
+- name: ${NODE_GROUP_NAME}-spot
+  instanceTypes: ["t3.medium", "t3.large", "t3a.medium", "t3a.large"]
+  spot: true
+  minSize: 2
+  maxSize: $MAX_NODES
+  desiredCapacity: $DESIRED_NODES
+  volumeSize: 50
+  volumeType: gp3
+  amiFamily: AmazonLinux2
+  ssh:
+    enableSsm: true
+  labels:
+    role: worker
+    environment: production
+    node-type: spot
+    workload-type: stateless
+  taints:
+  - key: spot-instance
+    value: "true"
+    effect: PreferNoSchedule
+  tags:
+    k8s.io/cluster-autoscaler/enabled: "true"
+    k8s.io/cluster-autoscaler/$CLUSTER_NAME: "owned"
+  iam:
+    withAddonPolicies:
+      imageBuilder: true
+      autoScaler: true
+      externalDNS: true
+      certManager: true
+      ebs: true
+      awsLoadBalancerController: true
       cloudWatch: true
 
 # Add-ons
@@ -244,8 +281,16 @@ install_addons() {
     
     # Install Metrics Server (if not already installed)
     kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-    
-    print_status "Essential add-ons installed"
+
+    # Install AWS Node Termination Handler for spot instance graceful draining
+    echo "Installing AWS Node Termination Handler..."
+    helm install aws-node-termination-handler eks/aws-node-termination-handler \
+        -n kube-system \
+        --set enableSpotInterruptionDraining=true \
+        --set enableRebalanceRecommendation=true \
+        --set enableScheduledEventDraining=true
+
+    print_status "Essential add-ons installed (including spot instance handler)"
 }
 
 # Create ECR repository
@@ -317,11 +362,12 @@ display_cluster_info() {
     echo -e "${BLUE}🗑️  Cleanup (when needed):${NC}"
     echo -e "  Delete cluster: eksctl delete cluster --name $CLUSTER_NAME --region $REGION"
     echo ""
-    echo -e "${YELLOW}💰 Cost Optimization Tips:${NC}"
-    echo -e "  - Use Spot instances for non-production workloads"
-    echo -e "  - Enable cluster autoscaler to scale down unused nodes"
+    echo -e "${YELLOW}💰 Cost Optimization:${NC}"
+    echo -e "  - Spot node group configured for stateless workloads (60-90% savings)"
+    echo -e "  - On-demand node group reserved for databases and stateful services"
+    echo -e "  - AWS Node Termination Handler installed for graceful spot draining"
+    echo -e "  - Cluster autoscaler enabled to scale down unused nodes"
     echo -e "  - Monitor costs with AWS Cost Explorer"
-    echo -e "  - Consider using Fargate for serverless containers"
 }
 
 # Cleanup function

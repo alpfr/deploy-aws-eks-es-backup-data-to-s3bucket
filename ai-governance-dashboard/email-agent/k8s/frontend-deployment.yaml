@@ -18,6 +18,22 @@ spec:
         app: email-agent
         component: frontend
     spec:
+      # Spot instance scheduling - prefer spot nodes for cost savings
+      tolerations:
+      - key: "spot-instance"
+        operator: "Equal"
+        value: "true"
+        effect: "PreferNoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 90
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - spot
       containers:
       - name: frontend
         image: 713220200108.dkr.ecr.us-east-1.amazonaws.com/email-agent-frontend:latest

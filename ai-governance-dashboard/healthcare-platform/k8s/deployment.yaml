@@ -119,5 +119,32 @@ spec:
           capabilities:
             drop:
             - ALL
+      # Spot instance scheduling - prefer spot/preemptible nodes for cost savings
+      tolerations:
+      - key: "spot-instance"
+        operator: "Equal"
+        value: "true"
+        effect: "PreferNoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 90
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - spot
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vantedge-health
+              topologyKey: kubernetes.io/hostname
       securityContext:
         fsGroup: 1001

@@ -194,10 +194,30 @@ serviceMonitor:
   interval: 30s
   scrapeTimeout: 10s
 
-# Node affinity and tolerations
+# Spot instance configuration
+# Stateless workloads (frontend/backend) prefer spot nodes for cost savings
+# Database stays on on-demand nodes via nodeSelector
+spotInstances:
+  enabled: true
+  taintEffect: PreferNoSchedule
+
+# Node affinity and tolerations for stateless workloads
 nodeSelector: {}
-tolerations: []
+tolerations:
+  - key: "spot-instance"
+    operator: "Equal"
+    value: "true"
+    effect: "PreferNoSchedule"
 affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 90
+      preference:
+        matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - spot
   podAntiAffinity:
     preferredDuringSchedulingIgnoredDuringExecution:
     - weight: 100
@@ -209,3 +229,8 @@ affinity:
             values:
             - opssightai
         topologyKey: kubernetes.io/hostname
+
+# Database node scheduling - force on-demand nodes for data safety
+databaseNodeSelector:
+  node-type: on-demand
+databaseTolerations: []

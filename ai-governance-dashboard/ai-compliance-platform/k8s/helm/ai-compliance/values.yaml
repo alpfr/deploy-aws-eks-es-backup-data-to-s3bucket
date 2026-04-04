@@ -211,11 +211,36 @@ securityContext:
       - ALL
   readOnlyRootFilesystem: false
 
+# Spot instance configuration
+# Stateless workloads (frontend/backend) prefer spot nodes for cost savings
+# Database stays on on-demand nodes via databaseNodeSelector
+spotInstances:
+  enabled: true
+  taintEffect: PreferNoSchedule
+
 # Node selector
 nodeSelector: {}
 
-# Tolerations
-tolerations: []
+# Tolerations - allow scheduling on spot nodes
+tolerations:
+  - key: "spot-instance"
+    operator: "Equal"
+    value: "true"
+    effect: "PreferNoSchedule"
 
-# Affinity
-affinity: {}
+# Affinity - prefer spot nodes for stateless workloads
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 90
+      preference:
+        matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - spot
+
+# Database node scheduling - force on-demand nodes for data safety
+databaseNodeSelector:
+  node-type: on-demand
+databaseTolerations: []

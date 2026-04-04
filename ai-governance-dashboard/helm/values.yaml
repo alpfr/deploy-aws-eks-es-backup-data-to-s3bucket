@@ -172,10 +172,29 @@ nginx:
         }
     }
 
+# Spot instance configuration
+spotInstances:
+  enabled: true
+  # PreferNoSchedule allows pods to run on on-demand if no spot available
+  taintEffect: PreferNoSchedule
+
 # Node affinity and tolerations
 nodeSelector: {}
-tolerations: []
+tolerations:
+  - key: "spot-instance"
+    operator: "Equal"
+    value: "true"
+    effect: "PreferNoSchedule"
 affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 90
+      preference:
+        matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - spot
   podAntiAffinity:
     preferredDuringSchedulingIgnoredDuringExecution:
     - weight: 100

@@ -67,6 +67,28 @@ gcloud container clusters create ${CLUSTER_NAME} \
 echo -e "${GREEN}Cluster created successfully!${NC}"
 echo ""
 
+# Create spot (preemptible) node pool for stateless workloads
+echo -e "${YELLOW}Creating spot node pool for cost optimization...${NC}"
+gcloud container node-pools create spot-pool \
+    --cluster=${CLUSTER_NAME} \
+    --project=${PROJECT_ID} \
+    --region=${REGION} \
+    --machine-type=${MACHINE_TYPE} \
+    --spot \
+    --num-nodes=1 \
+    --enable-autoscaling \
+    --min-nodes=2 \
+    --max-nodes=${MAX_NODES} \
+    --enable-autorepair \
+    --enable-autoupgrade \
+    --node-labels=node-type=spot,workload-type=stateless \
+    --node-taints=spot-instance=true:PreferNoSchedule \
+    --shielded-secure-boot \
+    --shielded-integrity-monitoring
+
+echo -e "${GREEN}Spot node pool created successfully!${NC}"
+echo ""
+
 echo -e "${YELLOW}Getting cluster credentials...${NC}"
 gcloud container clusters get-credentials ${CLUSTER_NAME} --region=${REGION} --project=${PROJECT_ID}
 

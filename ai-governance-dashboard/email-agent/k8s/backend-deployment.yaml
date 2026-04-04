@@ -19,6 +19,33 @@ spec:
         component: backend
     spec:
       serviceAccountName: email-agent-sa
+      # Spot instance scheduling - prefer spot nodes for cost savings
+      tolerations:
+      - key: "spot-instance"
+        operator: "Equal"
+        value: "true"
+        effect: "PreferNoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 90
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - spot
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - email-agent
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: backend
         image: 713220200108.dkr.ecr.us-east-1.amazonaws.com/email-agent-backend:latest

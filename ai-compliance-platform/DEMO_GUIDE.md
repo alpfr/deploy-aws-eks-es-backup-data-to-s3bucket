@@ -2,16 +2,22 @@
 
 This guide will walk you through demonstrating the key features of the AI Compliance Platform prototype.
 
-## 🚀 Quick Setup
+## 🚀 Quick Setup (Google Kubernetes Engine)
 
-1. **Start the platform**
+1. **Deploy to Google Cloud**
    ```bash
-   ./setup.sh
+   gcloud builds submit --config cloudbuild.yaml .
    ```
 
 2. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000/docs
+   - Frontend: `http://34.8.110.6/`
+   - Backend API Docs: `http://34.8.110.6/docs`
+
+3. **Populate Enterprise Demonstration Data**
+   For a realistic showcase, you can inject hundreds of mock records directly into the live GKE PostgreSQL container:
+   ```bash
+   kubectl exec -it deployment/backend -n ai-compliance -- python seed_data.py
+   ```
 
 ## 👥 Demo Accounts
 
@@ -24,7 +30,29 @@ This guide will walk you through demonstrating the key features of the AI Compli
 
 ## 🎯 Demo Scenarios
 
-### Scenario 1: Organization Self-Assessment
+### Scenario 1: Secure B2B Corporate Registration & Approval
+
+**Demonstrate the enterprise security access flow:**
+
+1. **Attempt Unauthorized Registration**
+   - Navigate to the **Register** tab.
+   - Try registering with a free email (e.g., `user@gmail.com`).
+   - *Observe the system actively blocking non-corporate domain emails.*
+
+2. **Valid Registration**
+   - Register a user with a valid corporate email (e.g., `alice@techcorp.com`) and select the `Regulatory Inspector` role.
+   - The user account is created but natively locked in a **Pending** state.
+   - An automated mock email is dispatched to the platform administrators.
+   - *Observe that the new user is actively blocked from logging in until approved.*
+
+3. **Administrator Approval**
+   - Login as the Master Admin (`admin` / `admin123`).
+   - Navigate to the **Pending Approvals** tab dynamically populated on the sidebar.
+   - Review the incoming B2B access request.
+   - Click **Authorize Access**.
+   - The user is fully approved, and an activation email is triggered.
+
+### Scenario 2: Organization Self-Assessment
 
 **Login as Organization Admin (`admin` / `admin123`)**
 
@@ -222,6 +250,19 @@ After the demo, discuss:
 - Integration with existing systems
 - Regulatory agency partnerships
 - Pricing and licensing models
+
+---
+
+### Scenario 4: Platform Administration & Settings
+
+**1. Interactive Configuration Panel**
+   - Click the **Settings** tab in the sidebar.
+   - Toggle the "Strict Mode Auto-Blocking" switch for the Security Edge Engine.
+   - Adjust the "Real-time email alerts" settings.
+   - Click **Save Configuration** and observe the live Snackbar toast validation.
+
+**2. Corporate Platform Information**
+   - Click the **About** tab to review the platform build and regulatory version details.
 
 ---
 

@@ -21,8 +21,8 @@ steps:
     args:
       - '-c'
       - |
-        sed -i "s|image: backend:latest|image: us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/backend:$BUILD_ID|g" k8s/02-backend.yaml
-        sed -i "s|image: frontend:latest|image: us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/frontend:$BUILD_ID|g" k8s/03-frontend.yaml
+        sed -i "s|backend:latest|us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/backend:$BUILD_ID|g" k8s/02-backend.yaml
+        sed -i "s|frontend:latest|us-central1-docker.pkg.dev/$PROJECT_ID/ai-compliance-repo/frontend:$BUILD_ID|g" k8s/03-frontend.yaml
 
   # Step 6: Create the core Kubernetes Namespace if it does not exist
   - name: 'gcr.io/cloud-builders/kubectl'
@@ -47,8 +47,8 @@ steps:
 
 substitutions:
   # Update these default substitution values before applying if needed, or pass them dynamically on trigger configurations!
-  _CLUSTER_NAME: 'ai-compliance-cluster'
-  _CLUSTER_REGION: 'us-central1'
+  _CLUSTER_NAME: 'opssightai-cluster'
+  _CLUSTER_REGION: 'us-central1-a'
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -21,7 +21,7 @@ export default defineConfig({
     open: true,
     proxy: {
       // Proxy all the routes used by the backend in development
-      '^/(auth|organizations|assessments|guardrails|compliance|audit-trail)': {
+      '^/(auth|organizations|assessments|guardrails|compliance|audit-trail|api|admin)': {
         target: 'http://localhost:8000',
         changeOrigin: true
       }

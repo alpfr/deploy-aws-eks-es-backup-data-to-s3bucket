@@ -15,6 +15,30 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Global Axios Interceptor for seamless auto-logout exactly when token expires
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          delete axios.defaults.headers.common['Authorization'];
+          setUser(null);
+          // Only redirect if we are not already on the login page
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
+  }, []);
+
   useEffect(() => {
     // Check if user is already logged in
     const token = localStorage.getItem('token');
@@ -36,7 +60,16 @@ export function AuthProvider({ children }) {
         password
       });
 
-      const { access_token, user_role, organization_id } = response.data;
+      const { access_token, user_role, organization_id, debug_traceback } = response.data;
+      
+      if (debug_traceback) {
+        console.error("Backend generated a traceback: ", debug_traceback);
+        return { success: false, error: 'Internal Server Error. Please contact support.' };
+      }
+      
+      if (!access_token) {
+        return { success: false, error: 'Failed to retrieve access token.' };
+      }
       
       const userData = {
         username,
@@ -64,10 +97,11 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (username, password, role, organizationName) => {
+  const register = async (username, email, password, role, organizationName) => {
     try {
       await axios.post('/auth/register', {
         username,
+        email,
         password,
         role,
         organization_name: organizationName

@@ -3,20 +3,24 @@ AI Compliance Platform - Sample Data Seeding Script
 Creates realistic demo data for testing and demonstration
 """
 
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import json
 import hashlib
 from datetime import datetime, timedelta
 import random
+import os
 
-DATABASE_URL = "../../ai_compliance.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/ai_compliance")
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 def seed_database():
     """Seed the database with comprehensive sample data"""
-    conn = sqlite3.connect(DATABASE_URL)
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    conn.autocommit = False
+    cursor = conn.cursor()
     
     try:
         # Clear existing data (except users and organizations created during startup)
@@ -34,16 +38,19 @@ def seed_database():
         print("🏢 Creating sample organizations...")
         for name, industry, jurisdiction in sample_orgs:
             # Check if organization already exists
-            existing = conn.execute("SELECT id FROM organizations WHERE name = ?", (name,)).fetchone()
+            cursor.execute("SELECT id FROM organizations WHERE name = %s", (name,))
+            existing = cursor.fetchone()
             if not existing:
-                conn.execute(
-                    "INSERT INTO organizations (name, industry, jurisdiction) VALUES (?, ?, ?)",
+                cursor.execute(
+                    "INSERT INTO organizations (name, industry, jurisdiction) VALUES (%s, %s, %s)",
                     (name, industry, jurisdiction)
                 )
+        conn.commit()
         
         # Get organization IDs
-        orgs = conn.execute("SELECT id, name, industry FROM organizations").fetchall()
-        org_dict = {name: (id, industry) for id, name, industry in orgs}
+        cursor.execute("SELECT id, name, industry FROM organizations")
+        orgs = cursor.fetchall()
+        org_dict = {org['name']: (org['id'], org['industry']) for org in orgs}
         
         # Sample users for each organization
         sample_users = [
@@ -59,13 +66,22 @@ def seed_database():
         print("👥 Creating sample users...")
         for username, password, role, org_name in sample_users:
             # Check if user already exists
-            existing = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            existing = cursor.fetchone()
             if not existing:
                 org_id = org_dict.get(org_name, (None, None))[0] if org_name else None
-                conn.execute(
-                    "INSERT INTO users (username, password_hash, role, organization_id) VALUES (?, ?, ?, ?)",
-                    (username, hash_password(password), role, org_id)
-                )
+                try:
+                    cursor.execute(
+                        "INSERT INTO users (username, email, password_hash, role, status, organization_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (username, f"{username}@example.com", hash_password(password), role, "active", org_id)
+                    )
+                except Exception:
+                    conn.rollback()
+                    cursor.execute(
+                        "INSERT INTO users (username, password_hash, role, organization_id) VALUES (%s, %s, %s, %s)",
+                        (username, hash_password(password), role, org_id)
+                    )
+        conn.commit()
         
         # Sample guardrail rules
         sample_guardrails = [
@@ -92,12 +108,14 @@ def seed_database():
         print("🛡️ Creating sample guardrail rules...")
         for name, rule_type, pattern, action, industry in sample_guardrails:
             # Check if rule already exists
-            existing = conn.execute("SELECT id FROM guardrail_rules WHERE name = ?", (name,)).fetchone()
+            cursor.execute("SELECT id FROM guardrail_rules WHERE name = %s", (name,))
+            existing = cursor.fetchone()
             if not existing:
-                conn.execute(
-                    "INSERT INTO guardrail_rules (name, rule_type, pattern, action, is_active, industry_profile) VALUES (?, ?, ?, ?, ?, ?)",
+                cursor.execute(
+                    "INSERT INTO guardrail_rules (name, rule_type, pattern, action, is_active, industry_profile) VALUES (%s, %s, %s, %s, %s, %s)",
                     (name, rule_type, pattern, action, True, industry)
                 )
+        conn.commit()
         
         # Sample assessments
         print("📋 Creating sample assessments...")
@@ -152,24 +170,27 @@ def seed_database():
                 created_at = datetime.now() - timedelta(days=random.randint(1, 90))
                 completed_at = created_at + timedelta(days=random.randint(1, 30)) if status == "completed" else None
                 
-                conn.execute("""
+                cursor.execute("""
                     INSERT INTO assessments (
                         organization_id, assessment_type, industry_profile, jurisdiction, 
                         status, compliance_score, findings, created_at, completed_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     org_id, assessment_type, industry, "US", status, compliance_score,
                     json.dumps(findings), created_at.isoformat(), 
                     completed_at.isoformat() if completed_at else None
                 ))
+        conn.commit()
         
         # Sample audit trail entries
         print("📝 Creating sample audit trail...")
-        users = conn.execute("SELECT id, username FROM users").fetchall()
+        cursor.execute("SELECT id, username FROM users")
+        users = cursor.fetchall()
         
         # Generate audit trail entries for the last 30 days
         for _ in range(50):
-            user_id, username = random.choice(users)
+            user = random.choice(users)
+            user_id, username = user['id'], user['username']
             
             actions = ["CREATE", "UPDATE", "FILTER", "LOGIN"]
             resource_types = ["assessment", "guardrail_rule", "organization", "llm_content"]
@@ -197,23 +218,65 @@ def seed_database():
                 minutes=random.randint(0, 59)
             )
             
-            conn.execute("""
+            cursor.execute("""
                 INSERT INTO audit_trail (user_id, action, resource_type, resource_id, details, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """, (
                 user_id, action, resource_type, random.randint(1, 10),
                 json.dumps(details), timestamp.isoformat()
             ))
         
         conn.commit()
+
+        # Create AI Models
+        sample_models = [
+            ("gpt-4-turbo", "GPT-4 Turbo", "OpenAI", "2024-04-09", "Most capable OpenAI model", ["text", "vision", "code"], ["financial_services", "healthcare", "automotive", "government", "retail"], True, True),
+            ("gpt-3.5-turbo", "GPT-3.5 Turbo", "OpenAI", "0125", "Fast and efficient OpenAI model", ["text", "code"], ["retail", "automotive"], True, False),
+            ("claude-3-opus", "Claude 3 Opus", "Anthropic", "20240229", "Most powerful Anthropic model", ["text", "vision", "code", "analysis"], ["financial_services", "healthcare", "government"], True, True),
+            ("claude-3-sonnet", "Claude 3 Sonnet", "Anthropic", "20240229", "Balanced Anthropic model", ["text", "vision", "code"], ["financial_services", "retail", "automotive"], True, False),
+            ("gemini-1.5-pro", "Gemini 1.5 Pro", "Google", "latest", "Advanced Google model", ["text", "vision", "audio", "code"], ["financial_services", "healthcare", "automotive"], True, True),
+            ("llama-3-70b", "Llama 3 70B", "Meta", "latest", "Open weights model", ["text", "code"], ["retail", "automotive"], True, False),
+        ]
+        
+        print("🤖 Creating sample AI models...")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ai_models (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                version TEXT,
+                description TEXT,
+                capabilities TEXT,
+                supported_industries TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                is_recommended BOOLEAN DEFAULT FALSE,
+                status TEXT DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        for m_id, name, provider, version, desc, caps, inds, is_active, is_rec in sample_models:
+            cursor.execute("SELECT id FROM ai_models WHERE id = %s", (m_id,))
+            if not cursor.fetchone():
+                cursor.execute("""
+                    INSERT INTO ai_models (id, name, provider, version, description, capabilities, supported_industries, is_active, is_recommended)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (m_id, name, provider, version, desc, json.dumps(caps), json.dumps(inds), is_active, is_rec))
+        conn.commit()
+
         print("✅ Sample data created successfully!")
         
         # Print summary
-        org_count = conn.execute("SELECT COUNT(*) FROM organizations").fetchone()[0]
-        user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        assessment_count = conn.execute("SELECT COUNT(*) FROM assessments").fetchone()[0]
-        guardrail_count = conn.execute("SELECT COUNT(*) FROM guardrail_rules").fetchone()[0]
-        audit_count = conn.execute("SELECT COUNT(*) FROM audit_trail").fetchone()[0]
+        cursor.execute("SELECT COUNT(*) as c FROM organizations")
+        org_count = cursor.fetchone()['c']
+        cursor.execute("SELECT COUNT(*) as c FROM users")
+        user_count = cursor.fetchone()['c']
+        cursor.execute("SELECT COUNT(*) as c FROM assessments")
+        assessment_count = cursor.fetchone()['c']
+        cursor.execute("SELECT COUNT(*) as c FROM guardrail_rules")
+        guardrail_count = cursor.fetchone()['c']
+        cursor.execute("SELECT COUNT(*) as c FROM audit_trail")
+        audit_count = cursor.fetchone()['c']
         
         print(f"""
 📊 Database Summary:
@@ -237,6 +300,7 @@ def seed_database():
         print(f"❌ Error seeding database: {e}")
         conn.rollback()
     finally:
+        cursor.close()
         conn.close()
 
 if __name__ == "__main__":

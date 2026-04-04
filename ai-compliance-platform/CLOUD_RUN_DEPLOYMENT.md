@@ -52,6 +52,40 @@ Once you `git push origin main`, GitHub spins an Ubuntu runner and perfectly exe
 5. Deploys it natively into your serverless `ai-compliance-backend` resource cluster, securely piping in your `DATABASE_URL`!
 6. Extracts that newly spawned backend URL natively and passes it as a `--build-arg` cleanly to compile the React `frontend` Vite map flawlessly.
 7. Deploys the beautiful Dashboard locally aligned under a separate URL space mapping natively across the internet.
-8. Displays both unique URLs (example: `https://ai-compliance-frontend-xyz123.a.run.app`) straight inside your GitHub Actions Console for fast access!
-
 No ingress mapping, node scaling logic, managing `kubectl`, or internal networking headaches strictly required. It auto-magically works cleanly through GitHub!
+
+---
+
+## 💻 5. Manual CLI Deployment (Optional Alternative)
+
+If you prefer to bypass GitHub Actions entirely and instantly deploy to Serverless Cloud Run directly from your local Mac terminal, you can utilize the `gcloud` CLI natively:
+
+### A. Deploy Your API Backend
+*(This will bundle your codebase and upload it securely to GCP)*
+```bash
+gcloud run deploy ai-compliance-backend \
+  --source ./backend \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="DATABASE_URL=postgresql://user:pass@PUBLIC_IP:5432/db,SECRET_KEY=Your_Long_Secret_String"
+
+# Copy the generated backend URL (e.g., https://ai-compliance-backend-xyz.a.run.app)
+```
+
+### B. Deploy Your UI Frontend
+Because Vite packages its frontend strictly alongside its backend proxy, you must pass the exact URL returned from the step above via `--build-arg` natively:
+
+```bash
+# 1. Build and push your frontend, securely injecting the Vite variable logic
+gcloud builds submit \
+  --tag us-central1-docker.pkg.dev/your-project-id/ai-compliance-repo/frontend:latest \
+  --build-arg=VITE_API_URL=https://REPLACE_ME_WITH_YOUR_BACKEND_URL \
+  ./frontend
+
+# 2. Deploy your natively built React dashboard container
+gcloud run deploy ai-compliance-frontend \
+  --image us-central1-docker.pkg.dev/your-project-id/ai-compliance-repo/frontend:latest \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+Your serverless web application is instantly live online and natively scaling!

@@ -23,11 +23,12 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Copy built assets from builder phase
-COPY --from=build /app/build /usr/share/nginx/html
+# Copy built assets from builder phase (Vite outputs to dist explicitly)
+COPY --from=build /app/dist /usr/share/nginx/html
 
-# Update Nginx to listen on port 3000 instead of 80 to match docker-compose.yml
-RUN sed -i 's/listen  *80;/listen 3000;/g' /etc/nginx/conf.d/default.conf
+# Update Nginx to listen on port 3000 and natively support React Router paths
+RUN sed -i 's/listen  *80;/listen 3000;/g' /etc/nginx/conf.d/default.conf && \
+    sed -i '/location \/ {/a \        try_files $uri /index.html;' /etc/nginx/conf.d/default.conf
 
 # Expose port 3000
 EXPOSE 3000

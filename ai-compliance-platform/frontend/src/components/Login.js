@@ -34,6 +34,7 @@ export default function Login() {
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [registerData, setRegisterData] = useState({
     username: '',
+    email: '',
     password: '',
     role: 'organization_admin',
     organizationName: ''
@@ -72,6 +73,7 @@ export default function Login() {
 
     const result = await register(
       registerData.username,
+      registerData.email,
       registerData.password,
       registerData.role,
       registerData.organizationName
@@ -177,6 +179,15 @@ export default function Login() {
                   margin="normal"
                   required
                   fullWidth
+                  label="Corporate Email"
+                  type="email"
+                  value={registerData.email}
+                  onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                />
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
                   label="Password"
                   type="password"
                   value={registerData.password}
@@ -216,6 +227,20 @@ export default function Login() {
             </TabPanel>
           </Box>
         </Paper>
+        
+        <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Are you a prospective client or regulatory partner?
+          </Typography>
+          <Button 
+            variant="outlined" 
+            color="primary" 
+            onClick={() => navigate('/about')}
+            sx={{ mt: 1, borderRadius: 6, px: 4 }}
+          >
+            Learn About the Platform
+          </Button>
+        </Box>
       </Box>
     </Container>
   );

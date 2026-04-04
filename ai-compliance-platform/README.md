@@ -18,6 +18,11 @@ A comprehensive system for operationalizing AI compliance frameworks, serving du
 - Risk assessment and scoring
 - Automated corrective measures
 
+### Executive Dashboard & LLM Management
+- Executive-level visual KPIs and Global Risk Heatmaps
+- Real-time LLM AI Model Registry and Capabilities Matching
+- Audit logging exclusively for Model Operations
+
 ### Comprehensive Audit Trail
 - Complete activity logging with timestamps
 - User attribution and evidence tracking
@@ -35,43 +40,42 @@ The platform follows a microservices architecture with:
 
 ### Prerequisites
 - Docker and Docker Compose
-- Git
+### Quick Setup (Google Kubernetes Engine)
 
-### Installation
-
-1. **Clone the repository**
+1. **Deploy to Google Cloud Build**
    ```bash
-   git clone <repository-url>
-   cd ai-compliance-platform
+   gcloud builds submit --config cloudbuild.yaml .
    ```
 
-2. **Run the setup script**
+2. **Access the Application natively**
+   - Frontend React SPA: `http://34.8.110.6/`
+   - Backend API Docs: `http://34.8.110.6/docs`
+
+3. **Deploy Enterprise Mock Data**
+   - Inject realistic dashboard visualizations with the PostgreSQL seeder:
    ```bash
-   chmod +x setup.sh
-   ./setup.sh
+   kubectl exec -it deployment/backend -n ai-compliance -- python seed_data.py
    ```
 
-3. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
+### Demo Accounts & Security Profiles
 
-### Demo Accounts
+The platform strictly enforces secure B2B registration. Registrations using free email providers (`@gmail.com`, `@yahoo.com`) are natively blocked by the backend. All authorized registrations default to a `pending` state awaiting administrative sign-off before accessing the internal dashboards.
 
-| Role | Username | Password | Description |
+| Role | Username | Password | Access Rights |
 |------|----------|----------|-------------|
-| Organization Admin | `admin` | `admin123` | Manage organization's compliance |
-| Regulatory Inspector | `inspector` | `inspector123` | Conduct regulatory assessments |
+| **Master Admin** | `admin` | `admin123` | Can approve new corporate registrations via Pending Approvals |
+| Regulatory Inspector | `inspector` | `inspector123` | Conduct overarching regulatory assessments across organizations |
 
 ## 📋 Usage Guide
 
 ### For Organizations (Self-Assessment)
 
-1. **Login** with organization admin credentials
-2. **Create Assessments** for your AI systems
-3. **Configure Guardrails** for real-time content filtering
-4. **Monitor Compliance** through the dashboard
-5. **Review Audit Trail** for complete activity history
+1. **Register** using a valid Corporate Email Domain. Wait for administrator activation.
+2. **Login** seamlessly after approval.
+3. **Create Assessments** for your AI systems using standardized forms.
+4. **Configure Guardrails** for real-time compliance filtering rules.
+5. **Monitor Analytics** through the primary dashboard.
+6. **Review Audit Trail** for complete historical activity history.
 
 ### For Regulatory Agencies
 
@@ -153,6 +157,8 @@ Create your own regex patterns for industry-specific compliance requirements.
 | `/assessments` | GET/POST/PUT | Assessment management |
 | `/guardrails` | GET/POST | Guardrail configuration |
 | `/guardrails/filter` | POST | Content filtering |
+| `/api/v1/models` | GET/POST/PUT/DELETE | AI Model LLM Management via Registry |
+| `/api/v1/models/audit` | GET | Audit trail exclusively for AI Models |
 | `/compliance/dashboard` | GET | Dashboard data |
 | `/audit-trail` | GET | Audit trail |
 

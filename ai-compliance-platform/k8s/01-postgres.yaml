@@ -11,6 +11,16 @@ spec:
     requests:
       storage: 10Gi
 ---
+# Database credentials — replace placeholder values before deploying!
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secrets
+  namespace: ai-compliance
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: "ai-compliance-secure-db-pass"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,6 +41,14 @@ spec:
         app: ai-compliance
         component: database
     spec:
+      # NOTE: Ideally Postgres runs on on-demand nodes. Currently all nodes are spot
+      # due to IP quota limits. The PVC protects data across pod restarts.
+      # TODO: Move to on-demand pool when quota is available.
+      tolerations:
+        - key: cloud.google.com/gke-spot
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
       containers:
         - name: postgres
           image: postgres:15-alpine
@@ -40,9 +58,14 @@ spec:
             - name: POSTGRES_USER
               value: "postgres"
             - name: POSTGRES_PASSWORD
-              value: "ai-compliance-secure-db-pass"
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: POSTGRES_PASSWORD
             - name: POSTGRES_DB
               value: "ai_compliance"
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata"
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data

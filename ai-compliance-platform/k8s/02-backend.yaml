@@ -1,12 +1,25 @@
 ---
+# Non-sensitive configuration
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: backend-config
   namespace: ai-compliance
 data:
+  ALLOWED_ORIGINS: "https://aicompliance.opssightai.com"
+  ENABLE_SEED_DATA: "true"
+---
+# Sensitive credentials — replace placeholder values before deploying!
+# In production, use: kubectl create secret generic backend-secrets --from-literal=SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))") ...
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secrets
+  namespace: ai-compliance
+type: Opaque
+stringData:
+  SECRET_KEY: "km1PAxBPbJ3yASpjghIANO43n1xfkIANcuQAOLaFfsJuz3sR1iscn2j1SF_5I8aT7JiTJ2tY-vNIde2OSBcdmA"
   DATABASE_URL: "postgresql://postgres:ai-compliance-secure-db-pass@postgres-svc:5432/ai_compliance"
-  SECRET_KEY: "replace-this-secure-secret-key-in-prod"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -17,17 +30,31 @@ metadata:
     app: ai-compliance
     component: backend
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: ai-compliance
       component: backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
   template:
     metadata:
       labels:
         app: ai-compliance
         component: backend
     spec:
+      # Schedule on Spot (preemptible) nodes for cost savings
+      nodeSelector:
+        cloud.google.com/gke-spot: "true"
+      tolerations:
+        - key: cloud.google.com/gke-spot
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+      terminationGracePeriodSeconds: 25
       containers:
         - name: backend
           # In a real environment, replace 'local' with your Artifact Registry (e.g., us-central1-docker.pkg.dev/project_id/repo/backend:latest)
@@ -38,13 +65,27 @@ spec:
           envFrom:
             - configMapRef:
                 name: backend-config
+            - secretRef:
+                name: backend-secrets
           resources:
             requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
               memory: "256Mi"
               cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: ai-compliance
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ai-compliance
+      component: backend
 ---
 apiVersion: v1
 kind: Service
@@ -52,6 +93,7 @@ metadata:
   name: backend-svc
   namespace: ai-compliance
 spec:
+  type: NodePort
   selector:
     app: ai-compliance
     component: backend
